@@ -8,7 +8,7 @@ class Reporter < DaemonSpawn::Base
   def start(args)
     puts "start : #{Time.now}"
 
-	config = YAML.load_file(File.expand_path(File.dirname(__FILE__) + '/../config.yml'))
+	config = YAML.load_file(File.expand_path(File.dirname(__FILE__) + '/../redis-config.yml'))
 	redis = Redis.new(
 		:host=>config['HOST'],
 		:port=>config['PORT'],
