@@ -18,6 +18,7 @@ class Reporter < DaemonSpawn::Base
         t = Time.now.to_i
         loadavg = `uptime`
 		redis.set( t, loadavg.split()[7] )
+		redis.expire( t, 14400)
         sleep 1
     end 
   end 
