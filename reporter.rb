@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 # -*- encoding: utf-8 -*-
+
 require 'yaml'
 require 'daemon_spawn'
 require 'redis'
@@ -17,9 +18,14 @@ class Reporter < DaemonSpawn::Base
     loop do
         t = Time.now.to_i
         loadavg = `uptime`
-		redis.set( t, loadavg.split()[7] )
-		redis.expire( t, 14400)
-        sleep 1
+
+		begin
+			redis.set( t, loadavg.split()[7] )
+			redis.expire( t, 14400)
+		rescue Redis::TimeoutError => e
+			puts e.message
+		end
+        sleep 2
     end 
   end 
 
