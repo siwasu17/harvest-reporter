@@ -2,6 +2,7 @@
 # -*- encoding: utf-8 -*-
 require 'open-uri'
 require 'json'
+require 'digest/md5'
 require 'yaml'
 require 'json'
 require 'daemon_spawn'
@@ -18,20 +19,26 @@ class Reporter < DaemonSpawn::Base
       :password=>config['PASSWORD'])
 
       loop do
-        span = 10
+        span = 60
 
         if ((Time.now.sec % span) == 0)
           begin
             t = Time.now.to_i
             url_list = redis.smembers("track_url")
             url_list.each do |url|
-              uri = URI.parse("http://graph.facebook.com/" + url)
-              contents = JSON.parse(uri.read)
-              k = t.to_s + "_" + url.hash.to_s
-              v = contents["shares"].to_s
+              req_uri = URI.parse("http://graph.facebook.com/" + url)
+              contents = JSON.parse(req_uri.read)
+              k = t.to_s + "_" + Digest::MD5.hexdigest(url)
+              if contents.key?("shares") then
+                v = contents["shares"].to_s
+              elsif contents.key?("likes") then
+                v = contents["likes"].to_s
+              else
+                v = 0
+              end
               redis.set(k,v)
               redis.expire( t, 259200)
-              puts t.to_s + "_" + url.hash.to_s +  " => " + contents["shares"].to_s
+              puts k +  " => " + v
             end
             sleep 1
           rescue => e
