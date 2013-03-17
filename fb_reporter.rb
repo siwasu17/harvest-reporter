@@ -1,7 +1,9 @@
 #!/usr/bin/env ruby
 # -*- encoding: utf-8 -*-
-
+require 'open-uri'
+require 'json'
 require 'yaml'
+require 'json'
 require 'daemon_spawn'
 require 'redis'
 
@@ -16,19 +18,23 @@ class Reporter < DaemonSpawn::Base
       :password=>config['PASSWORD'])
 
       loop do
-        loadavg = `uptime`
-        span = 5
+        span = 10
 
         if ((Time.now.sec % span) == 0)
           begin
             t = Time.now.to_i
-            val = loadavg.split()[7]
-#            val = loadavg.split(':').last.split(',').first
-            redis.set( t, val)
-            redis.expire( t, 14400)
-            puts Time.now.to_s + ": " + t.to_s + "=>" + val
+            url_list = redis.smembers("track_url")
+            url_list.each do |url|
+              uri = URI.parse("http://graph.facebook.com/" + url)
+              contents = JSON.parse(uri.read)
+              k = t.to_s + "_" + url.hash.to_s
+              v = contents["shares"].to_s
+              redis.set(k,v)
+              redis.expire( t, 259200)
+              puts t.to_s + "_" + url.hash.to_s +  " => " + contents["shares"].to_s
+            end
             sleep 1
-          rescue Redis::TimeoutError => e
+          rescue => e
             puts Time.now.to_s + ": " + e.message
           end
         else
@@ -54,8 +60,8 @@ FileUtils.mkdir_p(log_dir) unless FileTest.exist?(log_dir)
 
 Reporter.spawn!({
   :working_dir => work_dir,
-  :pid_file => tmp_dir + '/Reporter.pid',
-  :log_file => log_dir + '/Reporter.log',
+  :pid_file => tmp_dir + '/FB_Reporter.pid',
+  :log_file => log_dir + '/FB_Reporter.log',
   :sync_log => true,
   :singleton => true
 }) 
